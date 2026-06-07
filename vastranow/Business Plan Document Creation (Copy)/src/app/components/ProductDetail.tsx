@@ -1,8 +1,9 @@
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useState } from 'react';
 import { ShoppingCart, Heart, Share2, ChevronLeft } from 'lucide-react';
-import { products } from './products';
-import { CartItem } from './types';
+import { products as localProducts } from './products';
+import { productsAPI } from '../services/api';
+import { CartItem, Product } from './types';
 
 interface ProductDetailProps {
   addToCart: (product: CartItem) => void;
@@ -10,12 +11,42 @@ interface ProductDetailProps {
 
 export default function ProductDetail({ addToCart }: ProductDetailProps) {
   const { id } = useParams();
-  const product = products.find(p => p.id === id);
-
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const fetchProduct = async () => {
+      setLoading(true);
+      try {
+        const backendProduct = await productsAPI.getById(id);
+        setProduct(backendProduct);
+      } catch {
+        setProduct(localProducts.find(p => p.id === id) ?? null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [id]);
+
+  useEffect(() => {
+    setSelectedImage(0);
+  }, [product]);
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+        <p className="text-lg text-slate-600">Loading product details…</p>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -45,7 +76,7 @@ export default function ProductDetail({ addToCart }: ProductDetailProps) {
     setTimeout(() => setShowSuccess(false), 3000);
   };
 
-  const relatedProducts = products
+  const relatedProducts = localProducts
     .filter(p => p.category === product.category && p.id !== product.id)
     .slice(0, 4);
 

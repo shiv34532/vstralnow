@@ -6,6 +6,9 @@ import Home from './components/Home';
 import Shop from './components/Shop';
 import ProductDetail from './components/ProductDetail';
 import Cart from './components/Cart';
+import Auth from './components/Auth';
+import Account from './components/Account';
+import Admin from './components/Admin';
 import { CartItem } from './components/types';
 
 export default function App() {
@@ -70,6 +73,9 @@ export default function App() {
                 removeFromCart={removeFromCart}
               />
             } />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/account" element={<Account />} />
+            <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>
         <Footer />

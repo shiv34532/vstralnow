@@ -1,7 +1,10 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useState, useMemo } from 'react';
 import { Filter, X } from 'lucide-react';
-import { products, categories } from './products';
+import { products as localProducts, categories } from './products';
+import ProductCard from './ProductCard';
+import { Product } from './types';
+import { productsAPI } from '../services/api';
 
 export default function Shop() {
   const { category } = useParams();
@@ -10,6 +13,34 @@ export default function Shop() {
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [backendProducts, setBackendProducts] = useState<Product[] | null>(null);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  useEffect(() => {
+    if (category) {
+      setSelectedCategory(category);
+    }
+  }, [category]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoadingProducts(true);
+      try {
+        const data = selectedCategory === 'all'
+          ? await productsAPI.getAll()
+          : await productsAPI.getByCategory(selectedCategory);
+        setBackendProducts(data);
+      } catch {
+        setBackendProducts(null);
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+
+    fetchProducts();
+  }, [selectedCategory]);
+
+  const products = backendProducts ?? localProducts;
 
   const filteredProducts = useMemo(() => {
     let filtered = products;
@@ -21,33 +52,25 @@ export default function Shop() {
     filtered = filtered.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1]);
 
     if (selectedSizes.length > 0) {
-      filtered = filtered.filter(p =>
-        p.sizes.some(size => selectedSizes.includes(size))
-      );
+      filtered = filtered.filter(p => p.sizes.some(size => selectedSizes.includes(size)));
     }
 
     if (selectedColors.length > 0) {
-      filtered = filtered.filter(p =>
-        p.colors.some(color => selectedColors.includes(color))
-      );
+      filtered = filtered.filter(p => p.colors.some(color => selectedColors.includes(color)));
     }
 
     return filtered;
-  }, [selectedCategory, priceRange, selectedSizes, selectedColors]);
+  }, [products, selectedCategory, priceRange, selectedSizes, selectedColors]);
 
   const allSizes = Array.from(new Set(products.flatMap(p => p.sizes)));
   const allColors = Array.from(new Set(products.flatMap(p => p.colors)));
 
   const toggleSize = (size: string) => {
-    setSelectedSizes(prev =>
-      prev.includes(size) ? prev.filter(s => s !== size) : [...prev, size]
-    );
+    setSelectedSizes(prev => (prev.includes(size) ? prev.filter(s => s !== size) : [...prev, size]));
   };
 
   const toggleColor = (color: string) => {
-    setSelectedColors(prev =>
-      prev.includes(color) ? prev.filter(c => c !== color) : [...prev, color]
-    );
+    setSelectedColors(prev => (prev.includes(color) ? prev.filter(c => c !== color) : [...prev, color]));
   };
 
   const clearFilters = () => {
@@ -58,17 +81,14 @@ export default function Shop() {
   };
 
   const FilterPanel = () => (
-    <div className="space-y-6">
-      {/* Categories */}
+    <div className="space-y-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div>
         <h3 className="font-semibold mb-3">Categories</h3>
         <div className="space-y-2">
           <button
             onClick={() => setSelectedCategory('all')}
             className={`block w-full text-left px-3 py-2 rounded ${
-              selectedCategory === 'all'
-                ? 'bg-black text-white'
-                : 'hover:bg-gray-100'
+              selectedCategory === 'all' ? 'bg-black text-white' : 'hover:bg-slate-100'
             }`}
           >
             All Products
@@ -78,9 +98,7 @@ export default function Shop() {
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
               className={`block w-full text-left px-3 py-2 rounded ${
-                selectedCategory === cat.id
-                  ? 'bg-black text-white'
-                  : 'hover:bg-gray-100'
+                selectedCategory === cat.id ? 'bg-black text-white' : 'hover:bg-slate-100'
               }`}
             >
               {cat.name}
@@ -89,26 +107,22 @@ export default function Shop() {
         </div>
       </div>
 
-      {/* Price Range */}
       <div>
         <h3 className="font-semibold mb-3">Price Range</h3>
-        <div className="space-y-2">
+        <div className="space-y-3">
           <input
             type="range"
             min="0"
             max="5000"
             step="100"
             value={priceRange[1]}
-            onChange={(e) => setPriceRange([0, parseInt(e.target.value)])}
+            onChange={e => setPriceRange([0, parseInt(e.target.value)])}
             className="w-full"
           />
-          <p className="text-sm text-gray-600">
-            ₹0 - ₹{priceRange[1]}
-          </p>
+          <p className="text-sm text-slate-500">₹0 - ₹{priceRange[1]}</p>
         </div>
       </div>
 
-      {/* Sizes */}
       <div>
         <h3 className="font-semibold mb-3">Sizes</h3>
         <div className="flex flex-wrap gap-2">
@@ -116,10 +130,10 @@ export default function Shop() {
             <button
               key={size}
               onClick={() => toggleSize(size)}
-              className={`px-3 py-1 border rounded ${
+              className={`rounded-full border px-3 py-1 text-sm ${
                 selectedSizes.includes(size)
-                  ? 'bg-black text-white border-black'
-                  : 'border-gray-300 hover:border-black'
+                  ? 'border-black bg-black text-white'
+                  : 'border-slate-300 text-slate-700 hover:border-black'
               }`}
             >
               {size}
@@ -128,7 +142,6 @@ export default function Shop() {
         </div>
       </div>
 
-      {/* Colors */}
       <div>
         <h3 className="font-semibold mb-3">Colors</h3>
         <div className="flex flex-wrap gap-2">
@@ -136,10 +149,10 @@ export default function Shop() {
             <button
               key={color}
               onClick={() => toggleColor(color)}
-              className={`px-3 py-1 border rounded text-sm ${
+              className={`rounded-full border px-3 py-1 text-sm ${
                 selectedColors.includes(color)
-                  ? 'bg-black text-white border-black'
-                  : 'border-gray-300 hover:border-black'
+                  ? 'border-black bg-black text-white'
+                  : 'border-slate-300 text-slate-700 hover:border-black'
               }`}
             >
               {color}
@@ -148,10 +161,9 @@ export default function Shop() {
         </div>
       </div>
 
-      {/* Clear Filters */}
       <button
         onClick={clearFilters}
-        className="w-full py-2 border border-gray-300 hover:bg-gray-100 rounded"
+        className="w-full rounded-2xl border border-slate-300 bg-slate-50 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
       >
         Clear All Filters
       </button>
@@ -160,45 +172,41 @@ export default function Shop() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-serif mb-2">
           {selectedCategory === 'all'
             ? 'All Products'
             : categories.find(c => c.id === selectedCategory)?.name}
         </h1>
-        <p className="text-gray-600">{filteredProducts.length} products found</p>
+        <p className="text-slate-600">{filteredProducts.length} products found</p>
       </div>
 
       <div className="flex gap-8">
-        {/* Desktop Filters */}
-        <aside className="hidden lg:block w-64 flex-shrink-0">
-          <div className="sticky top-20">
+        <aside className="hidden lg:block w-80 flex-shrink-0">
+          <div className="sticky top-24">
             <FilterPanel />
           </div>
         </aside>
 
-        {/* Mobile Filter Button */}
         <button
           onClick={() => setMobileFilterOpen(true)}
-          className="lg:hidden fixed bottom-4 right-4 bg-black text-white px-4 py-3 rounded-full shadow-lg z-40 flex items-center"
+          className="lg:hidden fixed bottom-4 right-4 z-40 inline-flex items-center rounded-full bg-black px-4 py-3 text-sm font-semibold text-white shadow-xl"
         >
-          <Filter className="w-5 h-5 mr-2" />
+          <Filter className="mr-2 h-5 w-5" />
           Filters
         </button>
 
-        {/* Mobile Filter Drawer */}
         {mobileFilterOpen && (
           <div className="lg:hidden fixed inset-0 z-50">
             <div
-              className="absolute inset-0 bg-black bg-opacity-50"
+              className="absolute inset-0 bg-black/50"
               onClick={() => setMobileFilterOpen(false)}
             />
             <div className="absolute right-0 top-0 bottom-0 w-80 bg-white p-6 overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
+              <div className="mb-6 flex items-center justify-between">
                 <h2 className="text-xl font-semibold">Filters</h2>
                 <button onClick={() => setMobileFilterOpen(false)}>
-                  <X className="w-6 h-6" />
+                  <X className="h-6 w-6" />
                 </button>
               </div>
               <FilterPanel />
@@ -206,46 +214,21 @@ export default function Shop() {
           </div>
         )}
 
-        {/* Products Grid */}
         <div className="flex-1">
           {filteredProducts.length === 0 ? (
-            <div className="text-center py-16">
-              <p className="text-gray-500 text-lg">No products found matching your criteria.</p>
+            <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-sm">
+              <p className="text-lg text-slate-600">No products found matching your criteria.</p>
               <button
                 onClick={clearFilters}
-                className="mt-4 text-[#D4AF37] hover:underline"
+                className="mt-6 rounded-2xl bg-[#D4AF37] px-6 py-3 text-sm font-semibold text-black transition hover:bg-yellow-300"
               >
-                Clear all filters
+                Reset Filters
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {filteredProducts.map(product => (
-                <Link
-                  key={product.id}
-                  to={`/product/${product.id}`}
-                  className="group bg-white border overflow-hidden hover:shadow-lg transition-shadow"
-                >
-                  <div className="aspect-[3/4] overflow-hidden relative">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    {product.newArrival && (
-                      <span className="absolute top-2 left-2 bg-[#D4AF37] text-black px-3 py-1 text-xs font-bold">
-                        NEW
-                      </span>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold mb-1 group-hover:text-[#D4AF37] transition-colors">
-                      {product.name}
-                    </h3>
-                    <p className="text-sm text-gray-500 mb-2">{product.material}</p>
-                    <p className="font-bold text-lg">₹{product.price}</p>
-                  </div>
-                </Link>
+                <ProductCard key={product.id} product={product} />
               ))}
             </div>
           )}
